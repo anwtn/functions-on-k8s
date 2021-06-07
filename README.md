@@ -10,7 +10,7 @@ This project provides:
 
 ## Creating a function with a Docker file
 
-This step is optional, but it explains how to create a Docker enable function.
+This step explains how to create a Docker enabled function.
 
 You will need to have the Azure Function CLI installed to use the `func` tools. You can find the [Azure Functions Core Tools installation instructions here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Ccsharp%2Cbash#install-the-azure-functions-core-tools).
 
@@ -47,7 +47,9 @@ Because we are building a queue storage trigger, we will need an Azure Storage Q
 - (Apache Kafka)[https://keda.sh/docs/1.4/scalers/apache-kafka/]
 - (AWS Kinesis)[https://keda.sh/docs/1.4/scalers/aws-kinesis/]
 
-I will create an [Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). You can also [create an Azure Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
+## Creating the Azure Storage Account
+
+Next I created an [Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). I have borrowed a lot of the [material from the Azure team](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e). You can also [create an Azure Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
 
 `az.cmd login`
 
@@ -80,7 +82,7 @@ Create the resource-group with:
 The final command will create the Azure Storage Account. We will first set a few variables
 
 1) the name of the parent storage account for the queue
-`storageAccountName=reviewsstorage`
+`storageAccountName=reviewsonk8storage`
 
 2) the `kind` of the account - typically you will want `StorageV2` at the time of writing:
 `storageKind=StorageV2`
@@ -97,3 +99,46 @@ The final command will create the Azure Storage Account. We will first set a few
 The command to create the storage-account will then be:
 
 `az.cmd storage account create --resource-group $group --name $storageAccountName --location $location --kind $storageKind --sku $storageSku --access-tier $storageAccessTier --https-only $storageHttpsOnly`
+
+Finally we need to create the storage queue inside the new storage account. [The queue creation parameters are explained here](https://docs.microsoft.com/en-us/cli/azure/storage/queue?view=azure-cli-latest#az_storage_queue_create), but we will go through them.
+
+We will call our storage queue `review-submitted`:
+`queueName=review-submitted`
+
+We also need a storage-account key to use with the queue. We will generate this using the following command and store the output in a variable for later use:
+
+`storageAccountKey=$(az.cmd storage account keys list --resource-group $group --account-name $storageAccountName --query "[0].value" | tr -d '"')`
+
+We will also grab a connection string which we will need to use with our function app in a later section:
+
+`storageAccountConnectionString="DefaultEndpointsProtocol=https;AccountName=$storageAccountName;AccountKey=$storageAccountKey;EndpointSuffix=core.windows.net"`
+
+Use `echo $storageAccountConnectionString` to output the connection string and make note of it for later. 
+
+We can then create the new storage queue using the generated account key and connection string:
+
+`az.cmd storage queue create --name $queueName --account-key $storageAccountKey --account-name $storageAccountName --connection-string $storageAccountConnectionString`
+
+## Connect the function to the queue
+
+We will now make some small changes to the function we generated earlier to connect it to the queue.
+
+In the function code: `./ReviewsWorkerFunctionApp/ReviewQueueListener.cs`
+
+...add the queue-name and a new alias for the connection string, i.e.
+
+`public static void Run([QueueTrigger("myqueue-items", Connection = "")]string myQueueItem, ILogger log)`
+
+becomes:
+
+`public static void Run([QueueTrigger("review-submitted", Connection = "ReviewQueueConnectionString")]string myQueueItem, ILogger log)`
+
+
+
+## Generate the Docker image
+
+## Push the Docker image to ACR
+
+## Deploy the service to Kubernetes
+
+## Add some messages to the queue
