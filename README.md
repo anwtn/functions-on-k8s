@@ -49,7 +49,7 @@ Because we are building a queue storage trigger, we will need an Azure Storage Q
 
 ## Creating the Azure Storage Account
 
-Next I created an [Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). I have borrowed a lot of the [material from the Azure team](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e). You can also [create an Azure Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
+Next I created an [Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). I have borrowed some of the [material from the Azure team blog](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e). You can also [create an Azure Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
 
 `az.cmd login`
 
@@ -133,11 +133,29 @@ becomes:
 
 `public static void Run([QueueTrigger("review-submitted", Connection = "ReviewQueueConnectionString")]string myQueueItem, ILogger log)`
 
+Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in a minute.
 
+## Creating a private Docker repository with ACR
+
+Unless you want to push your Docker image to a public image repository, you'll need to create a private Docker store. For this purpose, I will use ACR (Azure Container Registry). Below are the commands to provision the registry.
+
+First, declare a name for the registry:
+
+`containerRegistryName=reviewsContainerRegistryDemo`
+
+The following command will create the container registry. As a side-note, you'll likely want to create a container registry for your entire project, possibly in its own resource group. I have created it in the same group for the convenience of being able to delete the whole group after the demo. I'll use the (`Basic` SKU)[https://docs.microsoft.com/en-us/azure/container-registry/container-registry-skus] as we're just using this for a demo:
+
+`az.cmd acr create --resource-group $group --name $containerRegistryName --sku Basic`
+
+The next command assigns a system managed identity to the container-registry:
+
+`az.cmd acr identity assign --identities [system] --name $containerRegistryName`
 
 ## Generate the Docker image
 
 ## Push the Docker image to ACR
+
+## (Optional) Create an AKS cluster
 
 ## Deploy the service to Kubernetes
 
