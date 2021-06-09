@@ -8,7 +8,7 @@ namespace ReviewsWorkerFunctionApp
     public static class ReviewQueueListener
     {
         [FunctionName("ReviewQueueListener")]
-        public static void Run([QueueTrigger("myqueue-items", Connection = "")]string myQueueItem, ILogger log)
+        public static void Run([QueueTrigger("review-submitted", Connection = "ReviewQueueConnectionString")]string myQueueItem, ILogger log)
         {
             log.LogInformation($"C# Queue trigger function processed: {myQueueItem}");
         }

@@ -135,6 +135,24 @@ becomes:
 
 Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in a minute.
 
+If you now build your function app with `.NET build`, you'll get a warning about a missing connection property in the `local.settings.json` file. Make sure `local.settings.json` is included in your .gitignore file so we don't commit credentials to the Git repo, and then go ahead and add this to `local.settings.json`:
+
+```
+{
+    "IsEncrypted": false,
+    "Values": {
+        "ReviewQueueConnectionString": "<YOUR-CONNECTION-STRING-HERE>",
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet"
+    }
+}
+```
+Replace `<YOUR-CONNECTION-STRING-HERE>` with the value of `echo $storageAccountConnectionString`. Note that the name of the connection string `ReviewQueueConnectionString` corresponds to the connection name stored against the queue trigger. If you build now the warning should go away. Note that these instructions apply to running the application in `VS Code`.
+
+To quickly test that the function now runs, use:
+
+`func start`
+
 ## Creating a private Docker repository with ACR
 
 Unless you want to push your Docker image to a public image repository, you'll need to create a private Docker store. For this purpose, I will use ACR (Azure Container Registry). Below are the commands to provision the registry.
@@ -151,7 +169,19 @@ The next command assigns a system managed identity to the container-registry:
 
 `az.cmd acr identity assign --identities [system] --name $containerRegistryName`
 
+Use the following command to print out details of the ACR login server etc. You'll need them for the next section:
+
+`az.cmd acr list -o table`
+
 ## Generate the Docker image
+
+The next step is to build the Docker image and push it to ACR. You'll need the ACR login server from the output of the last command in the previous section. The format of the command will be:
+
+`loginServer=reviewscontainerregistrydemo.azurecr.io`
+
+Note that your container registry name will be different. To build the container run:
+
+`docker build -t $loginServer/reviews-processor .`
 
 ## Push the Docker image to ACR
 
