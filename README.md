@@ -135,6 +135,8 @@ becomes:
 
 Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in a minute.
 
+## Let's add some messages
+
 So that we can test the scaling features of KEDA, we're going to add a 15 second delay to the processing of the message. Update the function body to be an async task and add a delay, i.e.:
 
 ```
@@ -184,6 +186,24 @@ Replace `<YOUR-CONNECTION-STRING-HERE>` with the value of `echo $storageAccountC
 To quickly test that the function now runs, use:
 
 `func start`
+
+The function should start up and list the `ReviewQueueListener` as available.
+
+Before we continue, we'll need some way to add reviews to our review queue. To do this, let's add a new HTTP triggered function that adds a randomly generated review to the queue. Add the function with:
+
+`func new`
+
+Under type select:
+`HttpTrigger`.
+
+For name enter:
+`ReviewGenerator`
+
+We're going to add the (`bogus` package)[https://github.com/bchavez/Bogus] to the project, which will allow us to generate a random review in the new function. Use:
+
+`dotnet add package Bogus --version 33.0.2`
+
+~~~~~~~~~~~ `TODO` ~~~~~~~~~~~~
 
 ## Creating a private Docker repository with ACR
 
