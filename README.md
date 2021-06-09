@@ -135,6 +135,38 @@ becomes:
 
 Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in a minute.
 
+So that we can test the scaling features of KEDA, we're going to add a 15 second delay to the processing of the message. Update the function body to be an async task and add a delay, i.e.:
+
+```
+using System;
+using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Extensions.Logging;
+
+namespace ReviewsWorkerFunctionApp
+{
+    public static class ReviewQueueListener
+    {
+        [FunctionName("ReviewQueueListener")]
+        public static async Task Run(
+            [QueueTrigger(
+                "review-submitted",
+                Connection = "ReviewQueueConnectionString")]
+            string myQueueItem,
+            ILogger log)
+        {
+            log.LogInformation($"Started processing at {DateTime.UtcNow:o}. Message: {nameof(ReviewQueueListener)}");
+
+            // Wait for 15 seconds to allow messages to
+            // build up in the queue.
+            await Task.Delay(15 * 1000);
+
+            log.LogInformation($"Finished processing at {DateTime.UtcNow:o}. Message: {nameof(ReviewQueueListener)}");
+        }
+    }
+}
+```
+
 If you now build your function app with `.NET build`, you'll get a warning about a missing connection property in the `local.settings.json` file. Make sure `local.settings.json` is included in your .gitignore file so we don't commit credentials to the Git repo, and then go ahead and add this to `local.settings.json`:
 
 ```
