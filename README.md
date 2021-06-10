@@ -18,6 +18,8 @@ Instructions for creating a [k8s enabled function can be found here](https://doc
 
 The commands in this documentation are similar to what you will find in the [Azure Functions command line quick-start](https://docs.microsoft.com/en-us/azure/azure-functions/create-first-function-cli-csharp?tabs=azure-cli%2Cbrowser&source=docs), but are specific for creating a Dockerised function app.
 
+If you are developing in VS Code it is helpful to install the [Azure Functions extensions](https://docs.microsoft.com/en-us/azure/azure-functions/functions-develop-vs-code?tabs=csharp#install-the-azure-functions-extension).
+
 Once you have installed the tools, you can initialize a new Azure Functions project - with Docker support - by running the following command:
 
 `func init ReviewsWorkerFunctionApp --dotnet --docker`

@@ -25,6 +25,7 @@ namespace ReviewsWorkerFunctionApp
                 new
                 {
                     EventId = Guid.NewGuid(),
+                    SubjectId = Guid.NewGuid(),
                     EventType = "ReviewSubmitted",
                     Content = new {
                         Text = faker.Rant.Review()
