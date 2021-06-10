@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
@@ -7,30 +6,37 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Bogus;
+using ReviewsWorkerFunctionApp.Utilities;
+using ReviewsWorkerFunctionApp.Models;
 
 namespace ReviewsWorkerFunctionApp
 {
     public static class ReviewGenerator
     {
-        [FunctionName("ReviewGenerator")]
-        public static async Task<IActionResult> Run(
+        [FunctionName(nameof(ReviewGenerator))]
+        public static IActionResult Run(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+            ILogger log,
+            [Queue(
+                queueName: QueueHelper.REVIEW_QUEUE_NAME,
+                Connection = QueueHelper.REVIEW_QUEUE_CONNECTION_STRING_NAME)] out string reviewMessage)
         {
             log.LogInformation($"Generating review with {nameof(ReviewGenerator)}.");
 
             var faker = new Faker("en");
 
             var messageString = JsonConvert.SerializeObject(
-                new
+                new ReviewModel
                 {
-                    EventId = Guid.NewGuid(),
-                    SubjectId = Guid.NewGuid(),
+                    EventId = Guid.NewGuid().ToString(),
+                    SubjectId = Guid.NewGuid().ToString(),
                     EventType = "ReviewSubmitted",
-                    Content = new {
+                    Content = new Review {
                         Text = faker.Rant.Review()
                     }
                 });
+
+            reviewMessage = messageString;
 
             log.LogInformation($"Sending review: {messageString}");
 
