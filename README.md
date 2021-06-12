@@ -349,10 +349,79 @@ You can view the cluster credentials using the `kubectl` command:
 
 `kubectl config get-contexts`
 
+The target context will have an asterisk next to it.
+
 ## Install the KEDA metrics for storage queues
+
+There are multiple options for [installing KEDA here](https://keda.sh/docs/1.4/deploy/), including HELM.
+
+One really useful option is to use the Functions command line tools (thank you to this [Azure blog post](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e) for the tip).
+
+`func kubernetes install --namespace keda`
+
+This will install KEDA into the (new) namespace `keda` on the cluster. There details of the `func install` and `func deploy` commands under the [`func cli` documentation](https://github.com/Azure/azure-functions-core-tools#deploying-a-function-to-aks-using-acr).
+
 
 ## Deploy the service to Kubernetes
 
+Next, we will need to create a Kubernetes deployment object as a YAML manifest. To do so use the `func kubernetes deploy` command with the `--dry-run` option and pipe out the deployment YAML to a file:
+
+`mkdir ./manifests`
+`func kubernetes deploy --name review-functions --image-name "$reviewsDockerImageName" --dry-run > ./manifests/review-function-deploy.yaml`
+
+Note that you can get detailed documentation using the `-h` flag, e.g. ` func kubernetes deploy -h`.
+
+If you view the contents of `./manifests/review-function-deploy.yaml` you will find several objects being declared:
+
+- a secret for the connection string - note that the values are base64 encoded. In my case these were derived from the `local.settings.json`
+- a secret for the Azure Function keys
+- several service and role related objects
+- a load-balancer service
+- deployments for our functions
+- an `azure-queue` KEDA `ScaledObject`
+
+You may wish to tweak the ports, resource limits and probably the names of the deployments. We'll go ahead and deploy the defaults with the following `kubectl` command:
+
+`kubectl apply -f ./manifests/review-function-deploy.yaml`
+
+Note that the completion of this command doesn't guarantee completion of our deployment. To monitor that, we'll list the deployments for our cluster:
+
+`kubectl get deployments`
+
+Check on the status of an individual deployment with the describe command, e.g.
+
+`kubectl describe deployment/review-functions`
+`kubectl describe deployment/review-functions-http`
+
+The `func deploy` command generated two deployment objects - `review-functions` for the queue triggered function and `review-functions-http` for the HTTP triggered function. As there were no messages in the queue to trigger the auto-scaling, there were zero pods for `review-functions`.
+
+I always like to look at the `pod` logs after a deployment. To list the pods, use:
+
+`kubectl get pods`
+
+You can then get the logs via the `pod` name:
+
+`kubectl logs pod/review-functions-http-7bd44b6df4-srh8m`
+
+I could see from the logs that the service came online. I could see that the `ReviewGenerator` HTTP function came online on (`pod`) port `80` under the route `api/review`:
+
+```
+info: Microsoft.Azure.WebJobs.Script.WebHost.WebScriptHostHttpRoutesManager[0]
+      Initializing function HTTP routes
+      Mapped function route 'api/review' [get,post] to 'ReviewGenerator'
+
+info: Host.Startup[412]
+      Host initialized (113ms)
+info: Host.Startup[413]
+      Host started (121ms)
+info: Host.Startup[0]
+      Job host started
+Hosting environment: Production
+Content root path: /
+Now listening on: http://[::]:80
+```
+
+To call our HTTP function, we'll need to get the AKS cluster IP.
 
 ## Test KEDA auto-scaling
 
@@ -360,8 +429,10 @@ You can view the cluster credentials using the `kubectl` command:
 
 If you create an AKS cluster, note that this will create one or more Virtual Machines. The cost of leaving this running can add up if you leave the cluster running, so you will likely want to cleanup by deleting the resource group (and therefore its contents). To do so, run:
 
-`az group delete -n $group`
+`az.cmd group delete -n $group`
 
-You might want to also consider adding billing alerts against your subscriptions.
+You might want to also consider adding billing alerts against your subscriptions. I find the following command useful for viewing consumption and costs, or you can also use the Azure portal:
+
+`az.cmd consumption usage list`
 
 I hope your enjoyed the tutorial.

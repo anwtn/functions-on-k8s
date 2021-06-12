@@ -1,9 +1,11 @@
 {
     "cSpell.words": [
+        "Dockerised",
         "Kube",
         "Newtonsoft",
         "azurecr",
         "kubectl",
+        "mkdir",
         "myqueue",
         "reviewscontainerregistrydemo"
     ]
