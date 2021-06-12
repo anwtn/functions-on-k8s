@@ -8,6 +8,7 @@
         "Dockerised",
         "Newtonsoft",
         "azurecr",
+        "kubectl",
         "nameof",
         "reviewscontainerregistrydemo",
         "sstorage"

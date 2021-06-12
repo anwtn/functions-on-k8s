@@ -447,7 +447,7 @@ To test the KEDA queue based auto-scaling, let's watch the pods with:
 
 `kubectl get pods --watch`
 
-Initially, you should see a HTTP function pod for `review-functions-http-<hash-goes-here>`.
+Initially, you should see a HTTP function pod for `review-functions-http-<random-string>`.
 
 The easiest way to test the auto-scaler is to put a bunch of messages to the queue, and the easiest way to do that is to call our `api/review` a bunch of times by hitting refresh in the browser.
 
