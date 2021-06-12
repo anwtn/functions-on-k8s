@@ -421,9 +421,34 @@ Content root path: /
 Now listening on: http://[::]:80
 ```
 
-To call our HTTP function, we'll need to get the AKS cluster IP.
+To call our HTTP function, we'll need to get the AKS cluster IP. List the running services like so:
+
+```
+$ kubectl get services
+NAME                    TYPE           CLUSTER-IP    EXTERNAL-IP    PORT(S)        AGE
+kubernetes              ClusterIP      10.0.0.1      <none>         443/TCP        132m
+review-functions-http   LoadBalancer   10.0.42.152   20.53.178.74   80:32647/TCP   9m4s
+```
+
+Note how the `review-functions-http` service provides an external IP of `20.53.178.74` on port `80`.  The IP address will be different when you run this. Putting this all together I will call:
+
+`http://20.53.178.74/api/review`
+
+...and voila - I get a response for a new (bogus) review:
+
+```
+{"EventId":"c17e2559-cd48-4d8d-9014-fc2ba572cdbd","SubjectId":"8d7748a5-3066-42aa-b5cd-6ef74b83c1a7","EventType":"ReviewSubmitted","Content":{"Text":"This product works very well. It romantically improves my football by a lot."}}
+```
 
 ## Test KEDA auto-scaling
+
+To test the KEDA queue based auto-scaling, let's watch the pods with:
+
+`kubectl get pods --watch`
+
+Initially, you should see a HTTP function pod for `review-functions-http-<hash-goes-here>`.
+
+
 
 ## Cleanup
 
