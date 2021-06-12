@@ -276,19 +276,33 @@ Use the following command to print out details of the ACR login server etc. You'
 
 `az.cmd acr list -o table`
 
-## Generate the Docker image
+## Build the Docker image and push to ACR
 
-The next step is to build the Docker image and push it to ACR. You'll need the ACR login server from the output of the last command in the previous section. The format of the command will be:
+The next step is to build the Docker image and push it to ACR (Azure Container Registry). You'll need the ACR login server from the output of the last command in the previous section. The format of the command will be:
 
 `loginServer=reviewscontainerregistrydemo.azurecr.io`
 
 Note that your container registry name will be different. To build the container run:
 
-`docker build -t $loginServer/reviews-processor .`
+`reviewsDockerImageName=$loginServer/reviews-processor`
 
-## Push the Docker image to ACR
+`docker build -t $reviewsDockerImageName .`
+
+Finally, we need to push the built image to ACR. Before we can push to ACR, we need to authenticate:
+
+`az.cmd acr login --name $containerRegistryName`
+
+Now that we have authenticated with ACR, we can push images to it but using the fully-qualified "login-server" path:
+
+`docker push $reviewsDockerImageName:latest`
+
+To see the list of images under the ACR account run:
+
+`az.cmd acr repository list --name $containerRegistryName --output table`
 
 ## (Optional) Create an AKS cluster
+
+The 
 
 ## Deploy the service to Kubernetes
 

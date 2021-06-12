@@ -6,6 +6,10 @@
     "azureFunctions.preDeployTask": "publish",
     "cSpell.words": [
         "Dockerised",
+        "Newtonsoft",
+        "azurecr",
+        "nameof",
+        "reviewscontainerregistrydemo",
         "sstorage"
     ]
 }
