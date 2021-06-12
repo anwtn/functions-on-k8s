@@ -8,10 +8,10 @@ metadata:
   name: review-functions
 ---
 data:
-  host.master: Z1FmMUFSei9SaG1rc2NWemEwWkl5WUh6LzM0cFlReno4aVVWR3AzSHZDVWFMUUVGNFR3UjZBPT0=
-  host.function.default: YUhZNGk4dkxWVXAxeU1WTVVUcWhOWjFqYUU3Q0ozc1VyeG5GVlJzYURSUURPRUlyQ1gwQkRnPT0=
-  host.systemKey.default: cGZPU04vSkppWFhhOW1BNGJVVVNyRmIzR3NpeldrTWNRT0lLTXVEMDBKaFMzZHFteUlyQUhBPT0=
-  functions.reviewgenerator.default: emFva2JBNUF1Ni9UcHNxeEVWSWF6c3lVMHVSUTFsZFcyOGM1UjBCSmUzRFMxeFRhSGNncmhRPT0=
+  host.master: d1QzWE5XTzAyeVhoMzBVb0JkUjlLL1RSaGFBc205NExtQzdtOERyQ3VSSmxoYkhjUW1Uc3lnPT0=
+  host.function.default: TVVLWURuY05Nalh1OG1hNXE0c3hneXQvZldRMFR3VTNaOEU1QVZLVEpVZnJHa0M3RWlFQVV3PT0=
+  host.systemKey.default: OVZ0T2tiOURDYWpzMXJtVTNyMFY5MHhXc0dvQU9EZ2l2VkVHZW02Y3k0aDNHamtvbFNBNmFBPT0=
+  functions.reviewgenerator.default: YTJqU2ZUR1VQazU1Zjl2QmFRaE5ETFlhS1hPT3dFc0hSM2NPWnhzL1YzUHU0S2hTbENMbU5nPT0=
 apiVersion: v1
 kind: Secret
 metadata:
@@ -172,7 +172,7 @@ spec:
   triggers:
   - type: azure-queue
     metadata:
-      queueName: ReviewQueue
+      queueName: review-submitted
       connectionFromEnv: ReviewQueueConnectionString
 ---
 

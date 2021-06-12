@@ -374,6 +374,7 @@ Note that you can get detailed documentation using the `-h` flag, e.g. ` func ku
 If you view the contents of `./manifests/review-function-deploy.yaml` you will find several objects being declared:
 
 - a secret for the connection string - note that the values are base64 encoded. In my case these were derived from the `local.settings.json`
+    - I will be deleting this deployment after the demo - so these credentials will no longer work - but be careful about committing these secrets to source control
 - a secret for the Azure Function keys
 - several service and role related objects
 - a load-balancer service
