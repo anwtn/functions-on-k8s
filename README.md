@@ -449,7 +449,34 @@ To test the KEDA queue based auto-scaling, let's watch the pods with:
 
 Initially, you should see a HTTP function pod for `review-functions-http-<hash-goes-here>`.
 
+The easiest way to test the auto-scaler is to put a bunch of messages to the queue, and the easiest way to do that is to call our `api/review` a bunch of times by hitting refresh in the browser.
 
+If you continue to watch the output of `kubectl get pods --watch`, you'll notice `review-functions` (queue-trigger) pods suddenly appear. I got a bit carried away I ended up with many queue listener pods. After a few minutes - you can see that these queue-listener pods start to terminate.
+
+```
+$ kubectl get pods --watch
+NAME                                     READY   STATUS    RESTARTS   AGE
+review-functions-7f788956bb-5898s        1/1     Running   0          3m38s
+review-functions-7f788956bb-797pf        1/1     Running   0          3m38s
+review-functions-7f788956bb-7ssqp        1/1     Running   0          5m51s
+review-functions-7f788956bb-h2vm9        1/1     Running   0          3m54s
+review-functions-7f788956bb-lblkc        1/1     Running   0          3m38s
+review-functions-7f788956bb-mwqw6        1/1     Running   0          3m54s
+review-functions-7f788956bb-nz9z4        1/1     Running   0          3m38s
+review-functions-7f788956bb-tjwxd        1/1     Running   0          3m54s
+review-functions-http-7bd44b6df4-6xvzw   1/1     Running   0          19m
+review-functions-7f788956bb-797pf        1/1     Terminating   0          4m51s
+review-functions-7f788956bb-lblkc        1/1     Terminating   0          4m51s
+review-functions-7f788956bb-5898s        1/1     Terminating   0          4m51s
+review-functions-7f788956bb-tjwxd        1/1     Terminating   0          5m7s
+
+```
+
+This is due to the KEDA queue-based auto-scaler detecting the arrival of many queue messages scaling out the queue listener pods to handle the load. Once KEDA detected that the rate of messages had slowed down, these pods started disappearing as part of the scale down. Pretty cool!
+
+If you want to watch the logs for these pods, an useful command to know is filtering the logs by app label:
+
+`kubectl logs -l app=review-functions`
 
 ## Cleanup
 
