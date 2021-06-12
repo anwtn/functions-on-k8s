@@ -15,7 +15,11 @@ namespace ReviewsWorkerFunctionApp
     {
         [FunctionName(nameof(ReviewGenerator))]
         public static IActionResult Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
+            [HttpTrigger(
+                AuthorizationLevel.Anonymous,
+                "get",
+                "post",
+                Route = "review")] HttpRequest req,
             ILogger log,
             [Queue(
                 queueName: QueueHelper.REVIEW_QUEUE_NAME,

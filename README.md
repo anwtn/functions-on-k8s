@@ -225,7 +225,11 @@ namespace ReviewsWorkerFunctionApp
     {
         [FunctionName(nameof(ReviewGenerator))]
         public static IActionResult Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
+            [HttpTrigger(
+                AuthorizationLevel.Anonymous,
+                "get",
+                "post",
+                Route = "review")] HttpRequest req,
             ILogger log,
             [Queue(
                 queueName: QueueHelper.REVIEW_QUEUE_NAME,
@@ -255,6 +259,7 @@ namespace ReviewsWorkerFunctionApp
     }
 }
 ```
+**Note**: I have made function access anonymous to make the demo simpler. Consider whether public access to the function is suitable for your use case.
 
 ## Creating a private Docker repository with ACR
 
@@ -284,7 +289,7 @@ The next step is to build the Docker image and push it to ACR (Azure Container R
 
 Note that your container registry name will be different. To build the container run:
 
-`reviewsDockerImageName=$loginServer/reviews-processor`
+`reviewsDockerImageName=$loginServer/reviews-processor:latest`
 
 `docker build -t $reviewsDockerImageName .`
 
@@ -294,16 +299,69 @@ Finally, we need to push the built image to ACR. Before we can push to ACR, we n
 
 Now that we have authenticated with ACR, we can push images to it but using the fully-qualified "login-server" path:
 
-`docker push $reviewsDockerImageName:latest`
+`docker push $reviewsDockerImageName`
 
 To see the list of images under the ACR account run:
 
 `az.cmd acr repository list --name $containerRegistryName --output table`
 
-## (Optional) Create an AKS cluster
+The Docker image we have just produced should run anywhere Docker runs, e.g. you can run it locally with:
 
-The 
+`docker run -p 5050:80 -e AzureWebJobsStorage=$storageAccountConnectionString -e ReviewQueueConnectionString=$storageAccountConnectionString $reviewsDockerImageName`
+
+You should then be able to reach the `api/review` endpoint via port `5050` on your local machine:
+
+`http://127.0.0.1:5050/api/review`
+
+Don't forget to kill the running container. I use:
+
+`docker container list`
+
+...to list the running containers and:
+
+`docker container kill <container-id-here>`
+
+...to kill the relevant container by it's ID from the previous command.
+
+## (Optional) Create an AKS cluster and grab the credentials
+
+If you already have a Kubernetes cluster running via Docker Desktop or MiniKube, you may choose to skip the creation of an AKS cluster. If you do, I'll assume you already have the credentials ready for your local/test cluster. Also note that you will need to [connect your cluster up to ACR](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-kubernetes) using an image-pull secret or similar.
+
+To create the Kubernetes cluster, run the following command:
+
+`aksName=reviewsAksDemo`
+
+`az.cmd aks create --resource-group $group --name $aksName --node-count 1 --generate-ssh-keys --network-plugin azure`
+
+Note that I have created a single node cluster to save costs. This is a single point of failure, and in reality you will want to provision multiple nodes. So we can pull images from ACR, we need to attach it to the cluster. This negates the need to setup an image-pull secret or similar:
+
+`az.cmd aks update --resource-group $group --name $aksName --attach-acr $containerRegistryName`
+
+You can get the details of your new cluster with:
+
+`az.cmd aks list --output table`
+
+We'll also want to grab the credentials to connect to and manage the cluster:
+
+`az.cmd aks get-credentials -g $group -n $aksName`
+
+You can view the cluster credentials using the `kubectl` command:
+
+`kubectl config get-contexts`
+
+## Install the KEDA metrics for storage queues
 
 ## Deploy the service to Kubernetes
 
-## Add some messages to the queue
+
+## Test KEDA auto-scaling
+
+## Cleanup
+
+If you create an AKS cluster, note that this will create one or more Virtual Machines. The cost of leaving this running can add up if you leave the cluster running, so you will likely want to cleanup by deleting the resource group (and therefore its contents). To do so, run:
+
+`az group delete -n $group`
+
+You might want to also consider adding billing alerts against your subscriptions.
+
+I hope your enjoyed the tutorial.

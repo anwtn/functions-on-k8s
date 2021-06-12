@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "Kube",
         "Newtonsoft",
         "azurecr",
+        "kubectl",
         "myqueue",
         "reviewscontainerregistrydemo"
     ]
