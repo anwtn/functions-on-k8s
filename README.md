@@ -42,10 +42,10 @@ The purposes of this function will be to listen to messages from a reviews queue
 
 Because we are building a queue storage trigger, we will need an Azure Storage Queue. Note that we can target other types of queues and event streams with KEDA including:
 
-- (Azure Service Bus)[https://keda.sh/docs/1.4/scalers/azure-service-bus/]
-- (RabbitMq)[https://keda.sh/docs/1.4/scalers/rabbitmq-queue/]
-- (Apache Kafka)[https://keda.sh/docs/1.4/scalers/apache-kafka/]
-- (AWS Kinesis)[https://keda.sh/docs/1.4/scalers/aws-kinesis/]
+- [Azure Service Bus](https://keda.sh/docs/1.4/scalers/azure-service-bus/)
+- [RabbitMq](https://keda.sh/docs/1.4/scalers/rabbitmq-queue/)
+- [Apache Kafka](https://keda.sh/docs/1.4/scalers/apache-kafka/)
+- [AWS Kinesis](https://keda.sh/docs/1.4/scalers/aws-kinesis/)
 
 ## Creating the Azure Storage Account
 
@@ -103,6 +103,7 @@ The command to create the storage-account will then be:
 Finally we need to create the storage queue inside the new storage account. [The queue creation parameters are explained here](https://docs.microsoft.com/en-us/cli/azure/storage/queue?view=azure-cli-latest#az_storage_queue_create), but we will go through them.
 
 We will call our storage queue `review-submitted`:
+
 `queueName=review-submitted`
 
 We also need a storage-account key to use with the queue. We will generate this using the following command and store the output in a variable for later use:
@@ -200,7 +201,7 @@ For type select:
 For name enter:
 `ReviewGenerator`
 
-We're going to add the (`bogus` package)[https://github.com/bchavez/Bogus] to the project. This will allow us to generate a random review in the new function. Use:
+We're going to add the [`bogus` package](https://github.com/bchavez/Bogus) to the project. This will allow us to generate a random review in the new function. Use:
 
 `dotnet add package Bogus --version 33.0.2`
 
@@ -448,10 +449,17 @@ Noting the external IP address, I called:
 ...and voila - I received a response for a new (random bogus) review:
 
 ```
-{"EventId":"c17e2559-cd48-4d8d-9014-fc2ba572cdbd","SubjectId":"8d7748a5-3066-42aa-b5cd-6ef74b83c1a7","EventType":"ReviewSubmitted","Content":{"Text":"This product works very well. It romantically improves my football by a lot."}}
+{
+    "EventId": "c17e2559-cd48-4d8d-9014-fc2ba572cdbd",
+    "SubjectId": "8d7748a5-3066-42aa-b5cd-6ef74b83c1a7",
+    "EventType": "ReviewSubmitted",
+    "Content": {
+        "Text": "This product works very well. It romantically improves my football by a lot."
+    }
+}
 ```
 
-I did this several more times. After a short delay, I started to see `review-functions` (queue-trigger) pods start to appear - and eventually terminate - as shown below:
+After having a good laugh, I did this several more times. After a short delay, I started to see `review-functions` (queue-trigger) pods start to appear - and eventually terminate - as shown below:
 
 ```
 $ kubectl get pods --watch
@@ -484,6 +492,6 @@ You might want to also consider adding billing alerts against your subscriptions
 
 `az.cmd consumption usage list --output tsv > ./consumption.tsv`
 
-You can then open and sort `./consumption.tsv` as a spreadsheet. I spent about 1.93 AUD to write this tutorial.
+You can then open and sort `./consumption.tsv` as a spreadsheet. I spent about `1.93 AUD` to write this tutorial.
 
 Thank you for reading - I hope your enjoyed the tutorial!
