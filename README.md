@@ -4,19 +4,17 @@
 
 This project provides:
 
-1. a simple Azure Function with a queue listener
-2. a set of instructions for deploying the function to a k8s cluster, optionally using AKS
-3. a test program for adding messages to the queue
+1. a simple Azure Function with a queue listener, and a HTTP function to add messages to the queue
+2. a set of instructions for deploying the function to a k8s cluster, optionally targeting AKS
+3. a demo of how the KEDA queue-based auto-scaling works
 
 ## Creating a function with a Docker file
 
-This step explains how to create a Docker enabled function.
+This first section explains how to create a Docker enabled function.
 
-You will need to have the Azure Function CLI installed to use the `func` tools. You can find the [Azure Functions Core Tools installation instructions here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Ccsharp%2Cbash#install-the-azure-functions-core-tools).
+You will need to have the Azure Function CLI installed to use the `func` tools. [Instructions to install the Azure Functions Core Tools installation instructions can be found here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=windows%2Ccsharp%2Cbash#install-the-azure-functions-core-tools), and [instructions for creating a k8s enabled function can be found here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-kubernetes-keda). We will deep-dive into the end-to-end workflow for creating such a function app. 
 
-Instructions for creating a [k8s enabled function can be found here](https://docs.microsoft.com/en-us/azure/azure-functions/functions-kubernetes-keda).
-
-The commands in this documentation are similar to what you will find in the [Azure Functions command line quick-start](https://docs.microsoft.com/en-us/azure/azure-functions/create-first-function-cli-csharp?tabs=azure-cli%2Cbrowser&source=docs), but are specific for creating a Dockerised function app.
+The commands in this documentation are similar to what you will find in the [Azure Functions command line quick-start](https://docs.microsoft.com/en-us/azure/azure-functions/create-first-function-cli-csharp?tabs=azure-cli%2Cbrowser&source=docs), but are specific for creating a Dockerised function app. I would like to acknowledge that I have borrowed some of the [material from the Azure team blog](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e)
 
 If you are developing in VS Code it is helpful to install the [Azure Functions extensions](https://docs.microsoft.com/en-us/azure/azure-functions/functions-develop-vs-code?tabs=csharp#install-the-azure-functions-extension).
 
@@ -37,12 +35,12 @@ For the purposes of this demo, we will create a simple Azure Storage Queue liste
 A list of template options will be provided - choose:
  `QueueTrigger`
 
-...and for the name we will use:
+...and for the function name we will use:
 `ReviewQueueListener`
 
-The purposes of this function will be to listen to messages from a reviews queue, which we will populate in a moment. Note that triggers like the queue-listener may require special scaling metrics - such as the [KEDA queue storage scaler](https://keda.sh/docs/1.4/scalers/azure-storage-queue/) - while HTTP triggered functions can leverage the default Horizontal Pod Autoscaling metrics for a web API running under Kubernetes.
+The purposes of this function will be to listen to messages from a reviews queue, which we will populate in a moment. Function triggers like the queue-listener may require special scaling metrics - such as the [KEDA queue storage scaler](https://keda.sh/docs/1.4/scalers/azure-storage-queue/) - while HTTP triggered functions can leverage the default Horizontal Pod Autoscaling metrics for a web API running under Kubernetes.
 
-Because we are building a queue storage trigger, we will need an Azure Storage Queue. Note that you can use other types of queues and event streams with KEDA including:
+Because we are building a queue storage trigger, we will need an Azure Storage Queue. Note that we can target other types of queues and event streams with KEDA including:
 
 - (Azure Service Bus)[https://keda.sh/docs/1.4/scalers/azure-service-bus/]
 - (RabbitMq)[https://keda.sh/docs/1.4/scalers/rabbitmq-queue/]
@@ -51,7 +49,7 @@ Because we are building a queue storage trigger, we will need an Azure Storage Q
 
 ## Creating the Azure Storage Account
 
-Next I created an [Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). I have borrowed some of the [material from the Azure team blog](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e). You can also [create an Azure Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
+To get started, we will [create an Azure Storage Queue using the Azure CLI](https://docs.microsoft.com/en-us/azure/storage/common/storage-account-create?tabs=azure-cli). If you prefer, you can also [create an Azure Storage Queue via the portal](https://docs.microsoft.com/en-us/azure/storage/queues/storage-quickstart-queues-portal). Make sure you login:
 
 `az.cmd login`
 
@@ -69,11 +67,11 @@ We'll create a new resource-group for our resources. Set a variable for the reso
 
 `group=reviews-rg`
 
-You'll also need to choose a location to host your resources. You can list the locations with:
+You'll also need to choose a location to host your resources. You can list the available locations with:
 
 `az.cmd account list-locations -o table`
 
-I set a location variable with:
+Again, set a variable with:
 
 `location=australiaeast`
 
@@ -81,7 +79,7 @@ Create the resource-group with:
 
 `az.cmd group create --name $group --location $location`
 
-The final command will create the Azure Storage Account. We will first set a few variables
+The final command will create the Azure Storage Account. We will first set a few variables to help us understand the various options:
 
 1) the name of the parent storage account for the queue
 `storageAccountName=reviewsonk8storage`
@@ -89,7 +87,7 @@ The final command will create the Azure Storage Account. We will first set a few
 2) the `kind` of the account - typically you will want `StorageV2` at the time of writing:
 `storageKind=StorageV2`
 
-3) the (storage-account SKU)[storageKind]. As I'm only using this for a demo, I've selected:
+3) the (storage-account SKU)[storageKind]. As I'm only using this for a demo, I've selected "Locally Redundant Storage" as it is the lowest cost option:
 `storageSku=Standard_LRS`
 
 4) access-tier is `hot` as we will be querying the data frequently:
@@ -131,13 +129,13 @@ In the function code: `./ReviewsWorkerFunctionApp/ReviewQueueListener.cs`
 
 `public static void Run([QueueTrigger("myqueue-items", Connection = "")]string myQueueItem, ILogger log)`
 
-becomes:
+...needs to be changes to:
 
 `public static void Run([QueueTrigger("review-submitted", Connection = "ReviewQueueConnectionString")]string myQueueItem, ILogger log)`
 
-Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in a minute.
+Note that this means we need the running environment of the function app to provide a connection-string called `ReviewQueueConnectionString`. We'll address this in the next section.
 
-## Let's add some messages
+## Connecting to the queue and adding messages
 
 So that we can test the scaling features of KEDA, we're going to add a 15 second delay to the processing of the message. Update the function body to be an async task and add a delay, i.e.:
 
@@ -171,7 +169,7 @@ namespace ReviewsWorkerFunctionApp
 }
 ```
 
-If you now build your function app with `.NET build`, you'll get a warning about a missing connection property in the `local.settings.json` file. Make sure `local.settings.json` is included in your .gitignore file so we don't commit credentials to the Git repo, and then go ahead and add this to `local.settings.json`:
+If you now build your function app with `.NET build`, you'll get a warning about a missing connection property in the `local.settings.json` file. Make sure `local.settings.json` is included in your .gitignore file so we don't commit credentials to the Git repo, and then go ahead and add the connection string to `local.settings.json`:
 
 ```
 {
@@ -183,7 +181,8 @@ If you now build your function app with `.NET build`, you'll get a warning about
     }
 }
 ```
-Replace `<YOUR-CONNECTION-STRING-HERE>` with the value of `echo $storageAccountConnectionString`. Note that the name of the connection string `ReviewQueueConnectionString` corresponds to the connection name stored against the queue trigger. If you build now the warning should go away. Note that these instructions apply to running the application in `VS Code`.
+
+Replace `<YOUR-CONNECTION-STRING-HERE>` with the value of `echo $storageAccountConnectionString`. Note that the name of the connection string `ReviewQueueConnectionString` corresponds to the connection name stored against the queue trigger. If you build now the warning should go away.
 
 To quickly test that the function now runs, use:
 
@@ -191,17 +190,17 @@ To quickly test that the function now runs, use:
 
 The function should start up and list the `ReviewQueueListener` as available.
 
-Before we continue, we'll need some way to add reviews to our review queue. To do this, let's add a new HTTP triggered function that adds a randomly generated review to the queue. Add the function with:
+Before we continue, we'll need some way to add reviews to our review queue. Let's add a new HTTP triggered function that adds a randomly generated review to the queue with:
 
 `func new`
 
-Under type select:
+For type select:
 `HttpTrigger`.
 
 For name enter:
 `ReviewGenerator`
 
-We're going to add the (`bogus` package)[https://github.com/bchavez/Bogus] to the project, which will allow us to generate a random review in the new function. Use:
+We're going to add the (`bogus` package)[https://github.com/bchavez/Bogus] to the project. This will allow us to generate a random review in the new function. Use:
 
 `dotnet add package Bogus --version 33.0.2`
 
@@ -259,17 +258,17 @@ namespace ReviewsWorkerFunctionApp
     }
 }
 ```
-**Note**: I have made function access anonymous to make the demo simpler. Consider whether public access to the function is suitable for your use case.
+**Note**: I have made function access anonymous to make the demo simpler when testing via Docker.
 
 ## Creating a private Docker repository with ACR
 
-Unless you want to push your Docker image to a public image repository, you'll need to create a private Docker store. For this purpose, I will use ACR (Azure Container Registry). Below are the commands to provision the registry.
+Unless you want to push your Docker image to a public image repository, you'll need to create a private Docker registry. For this purpose, I will use ACR (Azure Container Registry). Below are the commands to provision the registry.
 
 First, declare a name for the registry:
 
 `containerRegistryName=reviewsContainerRegistryDemo`
 
-The following command will create the container registry. As a side-note, you'll likely want to create a container registry for your entire project, possibly in its own resource group. I have created it in the same group for the convenience of being able to delete the whole group after the demo. I'll use the (`Basic` SKU)[https://docs.microsoft.com/en-us/azure/container-registry/container-registry-skus] as we're just using this for a demo:
+The following command will create the container registry. I have created it in the same group for the convenience of being able to delete the whole group after the demo. I'll use the (`Basic` SKU)[https://docs.microsoft.com/en-us/azure/container-registry/container-registry-skus] for the purposes of the demo:
 
 `az.cmd acr create --resource-group $group --name $containerRegistryName --sku Basic`
 
@@ -349,18 +348,15 @@ You can view the cluster credentials using the `kubectl` command:
 
 `kubectl config get-contexts`
 
-The target context will have an asterisk next to it.
+The target context will have an asterisk next to it - make sure you are targeting the correct context or use `kubectl config use-context <context-name>` to switch.
 
 ## Install the KEDA metrics for storage queues
 
-There are multiple options for [installing KEDA here](https://keda.sh/docs/1.4/deploy/), including HELM.
-
-One really useful option is to use the Functions command line tools (thank you to this [Azure blog post](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e) for the tip).
+There are multiple options for [installing KEDA here](https://keda.sh/docs/1.4/deploy/), including HELM. One really useful option is to use the Functions command line tools. Thank-you to this [Azure blog post](https://medium.com/microsoftazure/lifting-function-to-kubernetes-with-keda-e24de86fca2e) for the tip:
 
 `func kubernetes install --namespace keda`
 
 This will install KEDA into the (new) namespace `keda` on the cluster. There details of the `func install` and `func deploy` commands under the [`func cli` documentation](https://github.com/Azure/azure-functions-core-tools#deploying-a-function-to-aks-using-acr).
-
 
 ## Deploy the service to Kubernetes
 
@@ -371,14 +367,14 @@ Next, we will need to create a Kubernetes deployment object as a YAML manifest. 
 
 Note that you can get detailed documentation using the `-h` flag, e.g. ` func kubernetes deploy -h`.
 
-If you view the contents of `./manifests/review-function-deploy.yaml` you will find several objects being declared:
+Take a moment to review the contents of `./manifests/review-function-deploy.yaml` you will find several objects being declared:
 
-- a secret for the connection string - note that the values are base64 encoded. In my case these were derived from the `local.settings.json`
-    - I will be deleting this deployment after the demo - so these credentials will no longer work - but be careful about committing these secrets to source control
+- a secret for the connection string. In my case these were derived from the `local.settings.json` and base64 encoded
+    - I deleted all of the Azure resources after writing this tutorial - so these credentials will no longer work - but be careful not to commit these secrets to source control
 - a secret for the Azure Function keys
 - several service and role related objects
 - a load-balancer service
-- deployments for our functions
+- deployments objects for our functions. Interestingly, there was a deployment for each function, which makes sense as they use different scaling metrics
 - an `azure-queue` KEDA `ScaledObject`
 
 You may wish to tweak the ports, resource limits and probably the names of the deployments. We'll go ahead and deploy the defaults with the following `kubectl` command:
@@ -394,7 +390,7 @@ Check on the status of an individual deployment with the describe command, e.g.
 `kubectl describe deployment/review-functions`
 `kubectl describe deployment/review-functions-http`
 
-The `func deploy` command generated two deployment objects - `review-functions` for the queue triggered function and `review-functions-http` for the HTTP triggered function. As there were no messages in the queue to trigger the auto-scaling, there were zero pods for `review-functions`.
+The `func deploy` command generated two deployment objects - `review-functions` for the queue triggered function and `review-functions-http` for the HTTP triggered function. When I reviewed the events under `kubectl describe deployment/review-functions`, I noted that a single `pod` was provisioned, and torn down shortly after due to the lack of messages.
 
 I always like to look at the `pod` logs after a deployment. To list the pods, use:
 
@@ -404,11 +400,11 @@ You can then get the logs via the `pod` name, e.g.:
 
 `kubectl logs pod/review-functions-http-7bd44b6df4-srh8m`
 
-I prefer to watch the logs by the app label, so that I can watch new pods coming online:
+However, I prefer to watch the logs by the app label so that I can watch new pods coming online:
 
 `kubectl logs -l app=review-functions-http --follow --tail 1000`
 
-I could see from the logs that the service came online. I could see that the `ReviewGenerator` HTTP function came online on (`pod`) port `80` under the route `api/review`:
+I could see from the logs that the `ReviewGenerator` HTTP function came online using (container) port `80` with the route `api/review`:
 
 ```
 info: Microsoft.Azure.WebJobs.Script.WebHost.WebScriptHostHttpRoutesManager[0]
@@ -428,9 +424,7 @@ Now listening on: http://[::]:80
 
 ## Test KEDA auto-scaling
 
-To test the , 
-
-The easiest way to test KEDA queue based auto-scaling is to put a bunch of messages in the queue. To do so, we can call our `api/review` a bunch of times by hitting refresh in the browser (I have lazily allowed the `GET` verb to make this simpler).
+The easiest way to test KEDA queue based auto-scaling is to put a bunch of messages in the queue. To do so, we can call our `api/review` many times by hitting refresh in the browser - I have (lazily) allowed the `GET` verb to make this simpler.
 
 Before we can call the HTTP function, we'll need to get the AKS cluster IP. List the running services like so:
 
@@ -441,24 +435,23 @@ kubernetes              ClusterIP      10.0.0.1      <none>         443/TCP     
 review-functions-http   LoadBalancer   10.0.42.152   20.53.178.74   80:32647/TCP   9m4s
 ```
 
-Note how the `review-functions-http` service provides an external IP of `20.53.178.74` on port `80`.  The IP address will be different when you run this. Putting this all together I will call:
+In my case the `review-functions-http` service was provisioned an external IP of `20.53.178.74` and exposed on port `80`.  The IP address will be unique to your cluster when you run this. Before calling the endpoint, let's watch the pods with:
+
+`kubectl get pods --watch`
+
+Initially, you should see a HTTP function pod for `review-functions-http-<random-string>`. Let's prompt KEDA to provision some queue listener pod instances (starting with `review-functions`) by adding messages to the queue and monitoring this by watching the output of our `get pods` command.
+
+Noting the external IP address, I called:
 
 `http://20.53.178.74/api/review`
 
-...and voila - I get a response for a new (bogus) review:
+...and voila - I received a response for a new (random bogus) review:
 
 ```
 {"EventId":"c17e2559-cd48-4d8d-9014-fc2ba572cdbd","SubjectId":"8d7748a5-3066-42aa-b5cd-6ef74b83c1a7","EventType":"ReviewSubmitted","Content":{"Text":"This product works very well. It romantically improves my football by a lot."}}
 ```
 
-let's watch the pods with:
-
-`kubectl get pods --watch`
-
-Initially, you should see a HTTP function pod for `review-functions-http-<random-string>`.
-
-
-If you continue to watch the output of `kubectl get pods --watch`, you'll notice `review-functions` (queue-trigger) pods suddenly appear. I got a bit carried away I ended up with many queue listener pods. After a few minutes - you can see that these queue-listener pods start to terminate.
+I did this several more times. After a short delay, I started to see `review-functions` (queue-trigger) pods start to appear - and eventually terminate - as shown below:
 
 ```
 $ kubectl get pods --watch
@@ -479,11 +472,7 @@ review-functions-7f788956bb-tjwxd        1/1     Terminating   0          5m7s
 
 ```
 
-This is due to the KEDA queue-based auto-scaler detecting the arrival of many queue messages scaling out the queue listener pods to handle the load. Once KEDA detected that the rate of messages had slowed down, these pods started disappearing as part of the scale down. Pretty cool!
-
-If you want to watch the logs for these pods, an useful command to know is filtering the logs by app label:
-
-`kubectl logs -l app=review-functions`
+Here we are seeing the KEDA queue-based auto-scaler detecting the arrival of many queue messages, and scaling out the queue-listener pods to handle the load. Once KEDA detected that the rate of new messages had decreased, these pods started terminating as part of the scale down. Pretty cool!
 
 ## Cleanup
 
@@ -493,6 +482,8 @@ If you create an AKS cluster, note that this will create one or more Virtual Mac
 
 You might want to also consider adding billing alerts against your subscriptions. I find the following command useful for viewing consumption and costs, or you can also use the Azure portal:
 
-`az.cmd consumption usage list`
+`az.cmd consumption usage list --output tsv > ./consumption.tsv`
 
-I hope your enjoyed the tutorial.
+You can then open and sort `./consumption.tsv` as a spreadsheet. I spent about 1.93 AUD to write this tutorial.
+
+Thank you for reading - I hope your enjoyed the tutorial!
