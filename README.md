@@ -400,9 +400,13 @@ I always like to look at the `pod` logs after a deployment. To list the pods, us
 
 `kubectl get pods`
 
-You can then get the logs via the `pod` name:
+You can then get the logs via the `pod` name, e.g.:
 
 `kubectl logs pod/review-functions-http-7bd44b6df4-srh8m`
+
+I prefer to watch the logs by the app label, so that I can watch new pods coming online:
+
+`kubectl logs -l app=review-functions-http --follow --tail 1000`
 
 I could see from the logs that the service came online. I could see that the `ReviewGenerator` HTTP function came online on (`pod`) port `80` under the route `api/review`:
 
@@ -422,7 +426,13 @@ Content root path: /
 Now listening on: http://[::]:80
 ```
 
-To call our HTTP function, we'll need to get the AKS cluster IP. List the running services like so:
+## Test KEDA auto-scaling
+
+To test the , 
+
+The easiest way to test KEDA queue based auto-scaling is to put a bunch of messages in the queue. To do so, we can call our `api/review` a bunch of times by hitting refresh in the browser (I have lazily allowed the `GET` verb to make this simpler).
+
+Before we can call the HTTP function, we'll need to get the AKS cluster IP. List the running services like so:
 
 ```
 $ kubectl get services
@@ -441,15 +451,12 @@ Note how the `review-functions-http` service provides an external IP of `20.53.1
 {"EventId":"c17e2559-cd48-4d8d-9014-fc2ba572cdbd","SubjectId":"8d7748a5-3066-42aa-b5cd-6ef74b83c1a7","EventType":"ReviewSubmitted","Content":{"Text":"This product works very well. It romantically improves my football by a lot."}}
 ```
 
-## Test KEDA auto-scaling
-
-To test the KEDA queue based auto-scaling, let's watch the pods with:
+let's watch the pods with:
 
 `kubectl get pods --watch`
 
 Initially, you should see a HTTP function pod for `review-functions-http-<random-string>`.
 
-The easiest way to test the auto-scaler is to put a bunch of messages to the queue, and the easiest way to do that is to call our `api/review` a bunch of times by hitting refresh in the browser.
 
 If you continue to watch the output of `kubectl get pods --watch`, you'll notice `review-functions` (queue-trigger) pods suddenly appear. I got a bit carried away I ended up with many queue listener pods. After a few minutes - you can see that these queue-listener pods start to terminate.
 
