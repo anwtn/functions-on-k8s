@@ -378,7 +378,31 @@ Take a moment to review the contents of `./manifests/review-function-deploy.yaml
 - deployments objects for our functions. Interestingly, there was a deployment for each function, which makes sense as they use different scaling metrics
 - an `azure-queue` KEDA `ScaledObject`
 
-You may wish to tweak the ports, resource limits and probably the names of the deployments. We'll go ahead and deploy the defaults with the following `kubectl` command:
+You may wish to tweak the ports, resource limits and probably the names of the deployments. As an aside, you may be wondering what happens if we add another queue triggered function. Does the deployment YAML include a third deployment object? I tried this out with the same connection-string - but with a different queue - and it turns out that a second function gets added to the `review-functions` deployment. A snippet of the deployment object - which includes a reference to the `ReviewsQueue2` trigger - can be found below:
+
+```
+spec:
+  selector:
+    matchLabels:
+      app: review-functions
+  template:
+    metadata:
+      labels:
+        app: review-functions
+    spec:
+      containers:
+      - name: review-functions
+        image: reviewscontainerregistrydemo.azurecr.io/reviews-processor:latest
+        env:
+        - name: AzureFunctionsJobHost__functions__0
+          value: ReviewQueue2
+        - name: AzureFunctionsJobHost__functions__1
+          value: ReviewQueueListener
+```
+
+If you wanted more control over this behaviour, it appears you can tell the Azure Functions Job Host which functions using one or more `AzureFunctionsJobHost__functions__<array-index>` environment variables, where `<array-index>` can be replaced with the array index of each function listed. See the [host.json reference for functions](https://docs.microsoft.com/en-us/azure/azure-functions/functions-host-json#functions) for context. If you wanted a separate deployment for this function, you could add a new deployment object, and use this variable to indicate which function(s) should be run for the container.
+
+After reverting to the source code in this tutorial - i.e. without `ReviewsQueue2` - we'll go ahead and deploy the defaults with the following `kubectl` command:
 
 `kubectl apply -f ./manifests/review-function-deploy.yaml`
 
